@@ -1,0 +1,1 @@
+Home AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.

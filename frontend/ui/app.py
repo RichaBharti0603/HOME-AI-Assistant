@@ -1,10 +1,17 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+# frontend/ui/app.py
 import streamlit as st
-from backend.rag.rag import answer_query
+import requests
+
 st.title("HOME — Local AI Assistant")
+
 query = st.text_input("Ask something:")
+
 if query:
-    resp = answer_query(query)
-    st.write(resp)
+    try:
+        resp = requests.post(
+            "http://127.0.0.1:8000/query",
+            json={"query": query}
+        ).json()
+        st.write(resp.get("response", "No response received"))
+    except Exception as e:
+        st.error(f"Error connecting to backend: {e}")

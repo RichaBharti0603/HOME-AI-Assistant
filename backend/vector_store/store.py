@@ -1,26 +1,35 @@
-# backend/vector_store/store.py
-import faiss
+import os
 import pickle
-from sentence_transformers import SentenceTransformer
+import numpy as np
 
-VECTOR_STORE_PATH = "backend/vector_store/faiss_index.pkl"
-DOC_STORE_PATH = "backend/vector_store/documents.pkl"
+EMBEDDINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "embeddings", "store.pkl")
 
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+def save_embeddings(documents, embeddings):
+    """Save embeddings safely."""
+    os.makedirs(os.path.dirname(EMBEDDINGS_FILE), exist_ok=True)
+    with open(EMBEDDINGS_FILE, "wb") as f:
+        pickle.dump({"documents": documents, "embeddings": embeddings}, f)
+    print(f"[Info] Saved embeddings for {len(documents)} documents.")
 
-# Load vector store
-with open(VECTOR_STORE_PATH, "rb") as f:
-    index = pickle.load(f)
-with open(DOC_STORE_PATH, "rb") as f:
-    documents = pickle.load(f)
+def load_embeddings():
+    """Load embeddings safely."""
+    if not os.path.exists(EMBEDDINGS_FILE):
+        print(f"[Warning] Embeddings file not found: {EMBEDDINGS_FILE}")
+        return {"documents": [], "embeddings": np.array([])}
+    with open(EMBEDDINGS_FILE, "rb") as f:
+        return pickle.load(f)
 
 def query_store(query_embedding, top_k=3):
-    """
-    Return top_k relevant documents for a query embedding.
-    """
-    D, I = index.search(query_embedding, top_k)
-    results = []
-    for i in I[0]:
-        if i < len(documents):
-            results.append(documents[i]["text"])
-    return {"documents": [results]}
+    """Query vector store safely."""
+    store = load_embeddings()
+    documents = store.get("documents", [])
+    embeddings = store.get("embeddings", np.array([]))
+
+    if embeddings.size == 0 or len(documents) == 0:
+        return {"documents": []}
+
+    # Compute cosine similarity
+    similarity = embeddings @ query_embedding.T
+    top_idx = np.argsort(-similarity.flatten())[:top_k]
+    top_docs = [documents[i] for i in top_idx if i < len(documents)]
+    return {"documents": [top_docs]}

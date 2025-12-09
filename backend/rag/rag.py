@@ -1,4 +1,3 @@
-# backend/rag/rag.py
 from sentence_transformers import SentenceTransformer
 from backend.vector_store.store import query_store
 from backend.models.local_llm import run_llm
@@ -6,7 +5,7 @@ from backend.models.local_llm import run_llm
 # Load embedding model once
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-def answer_query(query: str) -> str:
+def get_rag_answer(query: str) -> str:
     """
     Answer a query using:
     1. Vector store to get context
