@@ -12,6 +12,15 @@ __pycache__/
 build/
 dist/
 
+homeenv/
+__pycache__/
+*.pyc
+*.pkl
+*.dll
+*.so
+*.log
+  
+  
 # Virtual environments
 venv/
 env/
