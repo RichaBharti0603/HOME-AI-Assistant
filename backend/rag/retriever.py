@@ -1,17 +1,16 @@
 # backend/rag/retriever.py
 
-from backend.rag.rag import answer_query
+from .rag import get_rag_answer  # corrected import
 
 def get_answer(query: str) -> str:
     """
     Retrieve an answer for the given query using the RAG pipeline.
     """
     try:
-        response = answer_query(query)
+        response = get_rag_answer(query)
         return response
     except Exception as e:
         return f"Error retrieving answer: {str(e)}"
-
 
 # Quick test when running this file directly
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
-# backend/models/local_llm.py
 import subprocess
 
 def run_llm(prompt: str) -> str:
