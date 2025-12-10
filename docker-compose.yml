@@ -1,0 +1,26 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: home-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - OLLAMA_MODEL=llama3.2
+    # If you want container to use host network (Linux):
+    # network_mode: "host"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/next-app/Dockerfile
+    container_name: home-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_HOST=http://host.docker.internal:8000
+    depends_on:
+      - backend
