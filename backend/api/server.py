@@ -4,11 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.rag.retriever import get_answer as get_rag_answer
+from backend.rag.retriever import get_answer as get_rag_answer, get_answer_stream
 from backend.personalization.store import load_profile, append_history, save_profile
 from backend.cache.cache import cached
 
-import shutil, os
+import shutil, os, time
 
 app = FastAPI(title="HOME AI Assistant API")
 
@@ -27,6 +27,7 @@ class Query(BaseModel):
     stream: bool = False
     top_k: int = 3
 
+# Regular ask endpoint
 @app.post("/ask")
 def ask(payload: Query):
     profile = load_profile(payload.user_id) if payload.user_id else {}
@@ -49,6 +50,23 @@ def ask(payload: Query):
 
     return {"answer": answer}
 
+# Streaming endpoint with typing effect
+@app.post("/ask_stream")
+def ask_stream(payload: Query):
+    """
+    Stream answer chunks back to the client with delays for a typing effect.
+    """
+    def answer_generator():
+        for chunk in get_answer_stream(payload.question, top_k=payload.top_k):
+            for line in chunk.split("\n"):
+                yield line + "\n"
+                time.sleep(0.05)  # small delay to simulate typing
+            if payload.user_id:
+                append_history(payload.user_id, "assistant", chunk)
+
+    return StreamingResponse(answer_generator(), media_type="text/plain")
+
+# File upload endpoint
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     docs_dir = os.path.join(os.path.dirname(__file__), "..", "documents")
@@ -58,10 +76,12 @@ async def upload_file(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
     return {"status": "saved", "path": dest}
 
+# Get user profile
 @app.get("/profile/{user_id}")
 def get_profile(user_id: str):
     return load_profile(user_id)
 
+# Update user profile
 @app.post("/profile/{user_id}")
 def update_profile(user_id: str, payload: dict):
     profile = load_profile(user_id)
