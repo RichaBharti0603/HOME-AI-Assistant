@@ -1,19 +1,44 @@
 import os
-from PyPDF2 import PdfReader
-def extract_text_from_pdf(filepath):
-    reader = PdfReader(filepath)
+import pdfplumber
+import docx
+from backend.vector_store.store import save_embeddings
+
+docs_path = "backend/documents"
+
+def read_txt(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+def read_pdf(path):
     text = ""
-    for page in reader.pages:
-        text += page.extract_text() or ""
+    with pdfplumber.open(path) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() or ""
     return text
 
-def ingest_file(filepath):
-    ext = filepath.split(".")[-1].lower()
+def read_docx(path):
+    doc = docx.Document(path)
+    return "\n".join([para.text for para in doc.paragraphs])
 
-    if ext == "pdf":
-        return extract_text_from_pdf(filepath)
+def ingest_all():
+    documents = []
+
+    for root, _, files in os.walk(docs_path):
+        for file in files:
+            path = os.path.join(root, file)
+
+            if file.endswith(".txt"):
+                documents.append(read_txt(path))
+            elif file.endswith(".pdf"):
+                documents.append(read_pdf(path))
+            elif file.endswith(".docx"):
+                documents.append(read_docx(path))
+
+    if not documents:
+        print("[Warning] No documents found to index.")
     else:
-        raise ValueError("Unsupported file format")
+        save_embeddings(documents)
+        print(f"[Info] Indexed {len(documents)} documents.")
 
 if __name__ == "__main__":
-    print(ingest_file("../sample.pdf"))
+    ingest_all()

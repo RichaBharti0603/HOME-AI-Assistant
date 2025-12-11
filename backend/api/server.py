@@ -1,20 +1,21 @@
 # backend/api/server.py
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from backend.rag.retriever import get_answer
-import subprocess
-import shlex
-import os
-from typing import Generator
+
+from backend.rag.retriever import get_answer as get_rag_answer
+from backend.personalization.store import load_profile, append_history, save_profile
+from backend.cache.cache import cached
+
+import shutil, os
 
 app = FastAPI(title="HOME AI Assistant API")
 
-# CORS - allow your frontend origin(s). For development allow all.
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # TODO: restrict to your frontend origin in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,49 +23,48 @@ app.add_middleware(
 
 class Query(BaseModel):
     question: str
-
-@app.get("/")
-def root():
-    return {"status": "Home AI Assistant API is running."}
+    user_id: str = None
+    stream: bool = False
+    top_k: int = 3
 
 @app.post("/ask")
 def ask(payload: Query):
-    """
-    Non-streaming synchronous endpoint for simple use.
-    """
-    answer = get_answer(payload.question)
-    return {"question": payload.question, "answer": answer}
+    profile = load_profile(payload.user_id) if payload.user_id else {}
 
-# --- streaming endpoint using the Ollama CLI (reads stdout progressively) ---
-def stream_ollama_cli(prompt: str) -> Generator[bytes, None, None]:
-    """
-    Run ollama in CLI mode and yield stdout as bytes for StreamingResponse.
-    This uses: `ollama run <model> <prompt>` and reads stdout lines as they appear.
-    """
-    # model name - change if you want a different model
-    model = os.getenv("OLLAMA_MODEL", "llama3.2")
-    # build CLI command - use text mode
-    # We run without shell=True; use shlex for safe tokenization.
-    cmd = ["ollama", "run", model, prompt]
-    try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-    except FileNotFoundError:
-        yield "Error: ollama CLI not found on server.\n".encode()
-        return
+    history_items = profile.get("history", [])[-5:]
+    recent_history = "".join([h["text"] for h in history_items])
 
-    # Stream stdout line by line
-    with proc.stdout:
-        for line in iter(proc.stdout.readline, ""):
-            # Each chunk is sent as plain text chunk. Client can parse line breaks.
-            yield line.encode("utf-8")
-    proc.wait()
+    user_profile_text = (
+        f"Name: {profile.get('name','')}\n"
+        f"Preferences: {profile.get('preferences','')}\n"
+        f"Recent history: {recent_history}"
+    )
 
-@app.post("/ask_stream")
-async def ask_stream(payload: Query):
-    """
-    Streaming endpoint returns a chunked response of LLM output.
-    The client should open a fetch and stream the bytes, or use EventSource-style parser.
-    """
-    prompt = f"You are HOME, a private AI assistant.\nQuestion:\n{payload.question}\nAnswer:\n"
-    stream = stream_ollama_cli(prompt)
-    return StreamingResponse(stream, media_type="text/plain")
+    answer = get_rag_answer(payload.question, top_k=payload.top_k)
+
+    # Save history
+    if payload.user_id:
+        append_history(payload.user_id, "user", payload.question)
+        append_history(payload.user_id, "assistant", answer)
+
+    return {"answer": answer}
+
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    docs_dir = os.path.join(os.path.dirname(__file__), "..", "documents")
+    os.makedirs(docs_dir, exist_ok=True)
+    dest = os.path.join(docs_dir, file.filename)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"status": "saved", "path": dest}
+
+@app.get("/profile/{user_id}")
+def get_profile(user_id: str):
+    return load_profile(user_id)
+
+@app.post("/profile/{user_id}")
+def update_profile(user_id: str, payload: dict):
+    profile = load_profile(user_id)
+    profile.update(payload)
+    save_profile(user_id, profile)
+    return profile

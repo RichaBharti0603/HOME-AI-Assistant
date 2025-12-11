@@ -1,0 +1,27 @@
+{
+  "user_id": "user_1",
+  "name": "",
+  "preferences": {},
+  "history": [
+    {
+      "time": "2025-12-11T05:44:36.623936",
+      "role": "user",
+      "text": "Hey"
+    },
+    {
+      "time": "2025-12-11T05:44:36.639947",
+      "role": "assistant",
+      "text": "Home AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n\n"
+    },
+    {
+      "time": "2025-12-11T05:44:51.453199",
+      "role": "user",
+      "text": "how are you ?\n"
+    },
+    {
+      "time": "2025-12-11T05:44:51.498089",
+      "role": "assistant",
+      "text": "Home AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n\n"
+    }
+  ]
+}

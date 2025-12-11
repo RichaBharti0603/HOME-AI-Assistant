@@ -1,19 +1,28 @@
-# backend/rag/retriever.py
+from backend.vector_store.store import load_embeddings
+from sentence_transformers import SentenceTransformer, util
 
-from .rag import get_rag_answer  # corrected import
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-def get_answer(query: str) -> str:
-    """
-    Retrieve an answer for the given query using the RAG pipeline.
-    """
-    try:
-        response = get_rag_answer(query)
-        return response
-    except Exception as e:
-        return f"Error retrieving answer: {str(e)}"
+def get_answer(query, top_k=3):
+    texts, embeddings = load_embeddings()
 
-# Quick test when running this file directly
-if __name__ == "__main__":
-    test_query = "What is the Home AI Assistant?"
-    print("Query:", test_query)
-    print("Answer:", get_answer(test_query))
+    if not texts:
+        return "No documents indexed yet."
+
+    query_emb = model.encode(query, convert_to_tensor=True)
+
+    # Compute cosine similarity scores
+    scores = util.cos_sim(query_emb, embeddings)[0]
+
+    # Pick top-k results
+    top_results = scores.topk(k=min(top_k, len(texts)))
+
+    combined_context = ""
+
+    for score, idx in zip(top_results.values, top_results.indices):
+        combined_context += texts[idx] + "\n\n"
+
+    if not combined_context.strip():
+        return "I don't have enough information to answer that."
+
+    return combined_context
