@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from backend.personalization.store import load_profile, save_profile, append_history
 from backend.rag.retriever import get_answer as get_rag_answer
 from backend.models.local_llm import generate_streaming_answer
+from backend.api.server import app
+
 
 import time
 

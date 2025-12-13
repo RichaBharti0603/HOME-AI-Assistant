@@ -1,14 +1,16 @@
 # backend/api/server.py
-from fastapi import FastAPI, Request, UploadFile, File
+
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.rag.retriever import get_answer as get_rag_answer, get_answer_stream
+from backend.rag.retriever import get_answer
 from backend.personalization.store import load_profile, append_history, save_profile
-from backend.cache.cache import cached
 
-import shutil, os, time
+import os
+import shutil
+import time
 
 app = FastAPI(title="HOME AI Assistant API")
 
@@ -21,67 +23,72 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class Query(BaseModel):
+class AskPayload(BaseModel):
     question: str
-    user_id: str = None
-    stream: bool = False
+    user_id: str | None = None
     top_k: int = 3
 
-# Regular ask endpoint
+
 @app.post("/ask")
-def ask(payload: Query):
-    profile = load_profile(payload.user_id) if payload.user_id else {}
+def ask(payload: AskPayload):
+    answer = get_answer(payload.question, top_k=payload.top_k)
 
-    history_items = profile.get("history", [])[-5:]
-    recent_history = "".join([h["text"] for h in history_items])
-
-    user_profile_text = (
-        f"Name: {profile.get('name','')}\n"
-        f"Preferences: {profile.get('preferences','')}\n"
-        f"Recent history: {recent_history}"
-    )
-
-    answer = get_rag_answer(payload.question, top_k=payload.top_k)
-
-    # Save history
     if payload.user_id:
         append_history(payload.user_id, "user", payload.question)
         append_history(payload.user_id, "assistant", answer)
 
     return {"answer": answer}
 
-# Streaming endpoint with typing effect
+
 @app.post("/ask_stream")
-def ask_stream(payload: Query):
+def ask_stream(payload: AskPayload):
     """
-    Stream answer chunks back to the client with delays for a typing effect.
+    Streams ONLY text chunks using SSE-style format:
+    data: <text>
+    data: [DONE]
     """
-    def answer_generator():
-        for chunk in get_answer_stream(payload.question, top_k=payload.top_k):
-            for line in chunk.split("\n"):
-                yield line + "\n"
-                time.sleep(0.05)  # small delay to simulate typing
-            if payload.user_id:
-                append_history(payload.user_id, "assistant", chunk)
 
-    return StreamingResponse(answer_generator(), media_type="text/plain")
+    def event_generator():
+        answer = get_answer(payload.question, top_k=payload.top_k)
 
-# File upload endpoint
+        # Save user message immediately
+        if payload.user_id:
+            append_history(payload.user_id, "user", payload.question)
+
+        # Stream word-by-word (safe & simple)
+        for token in answer.split():
+            yield f"data: {token} \n\n"
+            time.sleep(0.03)
+
+        yield "data: [DONE]\n\n"
+
+        # Save assistant message
+        if payload.user_id:
+            append_history(payload.user_id, "assistant", answer)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream"
+    )
+
+
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     docs_dir = os.path.join(os.path.dirname(__file__), "..", "documents")
     os.makedirs(docs_dir, exist_ok=True)
+
     dest = os.path.join(docs_dir, file.filename)
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
+
     return {"status": "saved", "path": dest}
 
-# Get user profile
+
 @app.get("/profile/{user_id}")
 def get_profile(user_id: str):
     return load_profile(user_id)
 
-# Update user profile
+
 @app.post("/profile/{user_id}")
 def update_profile(user_id: str, payload: dict):
     profile = load_profile(user_id)

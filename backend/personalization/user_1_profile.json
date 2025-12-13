@@ -42,6 +42,66 @@
       "time": "2025-12-11T09:07:50.744063",
       "role": "assistant",
       "text": "Home AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n\n"
+    },
+    {
+      "time": "2025-12-13T05:53:03.575588",
+      "role": "user",
+      "text": "What is AI?"
+    },
+    {
+      "time": "2025-12-13T05:53:04.652961",
+      "role": "assistant",
+      "text": "AI stands for Artificial Intelligence. It enables machines to perform tasks that typically require human intelligence.\n\n\nHome AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n\n\n"
+    },
+    {
+      "time": "2025-12-13T06:02:52.679822",
+      "role": "user",
+      "text": "Hey "
+    },
+    {
+      "time": "2025-12-13T06:02:53.273465",
+      "role": "assistant",
+      "text": "\n\n\n\nHome AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n"
+    },
+    {
+      "time": "2025-12-13T06:03:09.822899",
+      "role": "user",
+      "text": "how does thiis work ?"
+    },
+    {
+      "time": "2025-12-13T06:03:11.212896",
+      "role": "assistant",
+      "text": "AI stands for Artificial Intelligence. It enables machines to perform tasks that typically require human intelligence.\n\n\nHome AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n\n\nA balanced diet includes proteins, carbohydrates, fats, vitamins, and minerals.\n"
+    },
+    {
+      "time": "2025-12-13T06:13:55.107245",
+      "role": "user",
+      "text": "i want to kick this guy in the face "
+    },
+    {
+      "time": "2025-12-13T06:13:55.635799",
+      "role": "assistant",
+      "text": "\n\n\n\nAI stands for Artificial Intelligence. It enables machines to perform tasks that typically require human intelligence.\n"
+    },
+    {
+      "time": "2025-12-13T06:26:07.235850",
+      "role": "user",
+      "text": "hey"
+    },
+    {
+      "time": "2025-12-13T06:26:07.835576",
+      "role": "assistant",
+      "text": "\n\n\n\nHome AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n"
+    },
+    {
+      "time": "2025-12-13T06:26:21.271167",
+      "role": "user",
+      "text": "how are you ?"
+    },
+    {
+      "time": "2025-12-13T06:26:21.864840",
+      "role": "assistant",
+      "text": "\n\n\n\nHome AI Assistant is a personal AI that runs locally and can answer questions based on stored documents.\n"
     }
   ]
 }
