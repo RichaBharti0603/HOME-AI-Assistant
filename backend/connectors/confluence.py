@@ -1,4 +1,4 @@
-# backend/connectors/confluence.py
+
 """
 Confluence connector stub.
 """
