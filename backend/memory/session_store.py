@@ -1,54 +1,49 @@
-import sqlite3
-from pathlib import Path
-from typing import List, Tuple
+# backend/memory/session_store.py
 
-DB_PATH = Path(__file__).parent / "memory.db"
+from typing import Dict, List
 
-def _get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+# In-memory session store
+# session_id -> list of turns
+_SESSIONS: Dict[str, List[Dict[str, str]]] = {}
 
-def init_db():
-    conn = _get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            role TEXT,
-            content TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
 
-def append_to_session(session_id: str, role: str, content: str):
-    conn = _get_conn()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO conversations (session_id, role, content) VALUES (?, ?, ?)",
-        (session_id, role, content)
+def get_session(session_id: str) -> List[Dict[str, str]]:
+    """
+    Return conversation turns for a session.
+    """
+    return _SESSIONS.get(session_id, [])
+
+
+def append_turn(session_id: str, role: str, content: str) -> None:
+    """
+    Append a user or assistant turn to a session.
+    """
+    if session_id not in _SESSIONS:
+        _SESSIONS[session_id] = []
+
+    _SESSIONS[session_id].append(
+        {
+            "role": role,
+            "content": content,
+        }
     )
-    conn.commit()
-    conn.close()
 
-def get_session_context(session_id: str, limit: int = 10) -> str:
-    conn = _get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT role, content
-        FROM conversations
-        WHERE session_id = ?
-        ORDER BY id DESC
-        LIMIT ?
-    """, (session_id, limit))
-    rows = cur.fetchall()
-    conn.close()
 
-    rows.reverse()
-    context = []
-    for role, content in rows:
-        prefix = "User" if role == "user" else "Assistant"
-        context.append(f"{prefix}: {content}")
+def get_summary(session_id: str, max_turns: int = 6) -> str:
+    """
+    Lightweight conversation summary.
+    For Step 1, this simply returns the last N turns as context.
+    """
+    turns = _SESSIONS.get(session_id, [])
 
-    return "\n".join(context)
+    if not turns:
+        return ""
+
+    recent = turns[-max_turns:]
+    lines = []
+
+    for t in recent:
+        role = t["role"].capitalize()
+        lines.append(f"{role}: {t['content']}")
+
+    return "\n".join(lines)

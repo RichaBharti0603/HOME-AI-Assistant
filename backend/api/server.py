@@ -1,49 +1,52 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.rag.retriever import get_answer_stream
 from backend.memory.session_store import (
-    init_db,
-    append_to_session,
-    get_session_context
+    append_turn,
+    get_summary,
+    summarize_session
 )
 
 app = FastAPI(title="HOME AI Assistant API")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-init_db()
 
 class AskPayload(BaseModel):
     question: str
     session_id: str
 
+
 @app.post("/ask_stream")
 def ask_stream(payload: AskPayload):
+
     session_id = payload.session_id
     question = payload.question
 
-    append_to_session(session_id, "user", question)
-    memory = get_session_context(session_id)
+    # Store user turn
+    append_turn(session_id, "User", question)
+
+    conversation_memory = get_summary(session_id)
 
     def stream():
-        answer_accumulator = ""
+        answer_text = ""
+
         for chunk in get_answer_stream(
             question=question,
-            session_memory=memory
+            conversation_memory=conversation_memory
         ):
-            answer_accumulator += chunk
+            answer_text += chunk
             yield f"data: {chunk}\n\n"
 
-        append_to_session(session_id, "assistant", answer_accumulator)
+        # Store assistant turn
+        append_turn(session_id, "Assistant", answer_text)
+
+        # Summarize if needed
+        summarize_session(session_id)
+
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream"
+    )
